@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
 import { getCategories, createCategory } from '@/services/api';
+import { FolderPlus, PieChart, Tag, Loader2 } from 'lucide-react';
 
 interface Category {
   name: string;
   count: number;
-  color: string;
+  color?: string; // Optional because backend might not send it
 }
 
 export default function CategoriesPage() {
@@ -18,28 +19,25 @@ export default function CategoriesPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [addingCategory, setAddingCategory] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editDescription, setEditDescription] = useState('');
+
+  // Fallback colors for professional look
+  const colorPalette = ['bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-emerald-500', 'bg-rose-500'];
+
+  const fetchCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch (err) {
+      setError('Failed to load categories. Is Railway Backend online?');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const data = await getCategories();
-        setCategories(data);
-      } catch (err) {
-        setError('Failed to load categories');
-        console.error('Error fetching categories:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchCategories();
   }, []);
-
-  const totalProducts = categories.reduce((sum, category) => sum + category.count, 0);
-  const averagePerCategory = categories.length > 0 ? (totalProducts / categories.length).toFixed(2) : '0';
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,108 +51,99 @@ export default function CategoriesPage() {
       });
       setNewCategoryName('');
       setNewCategoryDescription('');
-      // Refresh categories
-      const data = await getCategories();
-      setCategories(data);
+      await fetchCategories(); // Refresh list
     } catch (err) {
-      console.error('Error adding category:', err);
       setError('Failed to add category');
     } finally {
       setAddingCategory(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-screen bg-gray-100">
-        <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-xl">Loading categories...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-screen bg-gray-100">
-        <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-xl text-red-500">{error}</div>
-        </div>
-      </div>
-    );
-  }
+  const totalProducts = categories.reduce((sum, category) => sum + category.count, 0);
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-slate-50">
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-6">Categories</h1>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {categories.map((category) => (
-              <div key={category.name} className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow">
-                <div className={`w-12 h-12 ${category.color} rounded-full flex items-center justify-center mb-4`}>
-                  <span className="text-white font-bold text-xl">{category.name.charAt(0)}</span>
-                </div>
-                <h2 className="text-xl font-semibold mb-2">{category.name}</h2>
-                <p className="text-gray-600">{category.count} products</p>
-              </div>
-            ))}
+      
+      <div className="flex-1 overflow-auto p-8">
+        <header className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Food Categories</h1>
+            <p className="text-slate-500">Manage and organize your menu items</p>
           </div>
+          <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-slate-200 flex items-center gap-3">
+             <PieChart className="text-blue-500 w-5 h-5" />
+             <span className="font-semibold text-slate-700">{categories.length} Total Categories</span>
+          </div>
+        </header>
 
-          <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
-            <h2 className="text-2xl font-bold mb-4">Category Management</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Add New Category</h3>
-                <form onSubmit={handleAddCategory}>
+        {loading ? (
+          <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin w-10 h-10 text-blue-500" /></div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Left: Category List Grid */}
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {categories.map((category, index) => (
+                <div key={category.name} className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-all flex items-center gap-4">
+                  <div className={`w-12 h-12 ${category.color || colorPalette[index % colorPalette.length]} rounded-lg flex items-center justify-center text-white`}>
+                    <Tag className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-slate-800 text-lg">{category.name}</h2>
+                    <p className="text-slate-500 text-sm font-medium">{category.count} Products Linked</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Right: Management Panel */}
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <FolderPlus className="text-blue-600 w-5 h-5" /> New Category
+                </h2>
+                <form onSubmit={handleAddCategory} className="space-y-4">
                   <input
                     type="text"
-                    placeholder="Category name"
+                    placeholder="Category Name (e.g. Italian)"
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   />
                   <textarea
-                    placeholder="Category description (optional)"
+                    placeholder="Brief description..."
                     value={newCategoryDescription}
                     onChange={(e) => setNewCategoryDescription(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none h-24"
                   />
                   <button
-                    type="submit"
                     disabled={addingCategory}
-                    className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex justify-center"
                   >
-                    {addingCategory ? 'Adding...' : 'Add Category'}
+                    {addingCategory ? <Loader2 className="animate-spin" /> : 'Create Category'}
                   </button>
                 </form>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Quick Stats</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Total Categories:</span>
-                    <span className="font-semibold">{categories.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Total Products:</span>
-                    <span className="font-semibold">{totalProducts}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Average per Category:</span>
-                    <span className="font-semibold">{averagePerCategory}</span>
-                  </div>
-                </div>
+
+              {/* Stats Box */}
+              <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl">
+                 <h3 className="text-slate-400 uppercase text-xs font-bold tracking-widest mb-4">Quick Insights</h3>
+                 <div className="space-y-4">
+                    <div className="flex justify-between border-b border-slate-800 pb-2">
+                      <span className="text-slate-300">Active Menu</span>
+                      <span className="font-mono text-blue-400">{totalProducts} Items</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-800 pb-2">
+                      <span className="text-slate-300">Density</span>
+                      <span className="font-mono text-purple-400">Avg {categories.length > 0 ? (totalProducts / categories.length).toFixed(1) : 0} p/c</span>
+                    </div>
+                 </div>
               </div>
             </div>
+
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

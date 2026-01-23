@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { getProducts, deleteProduct } from '@/services/api';
 import QRCode from 'qrcode.react';
 import Sidebar from '@/components/Sidebar';
-import { Box, Eye } from 'lucide-react';
+import Navbar from '@/components/Navbar';
+import { Box, Eye, Trash2, Plus, Search, Loader2, Download, ExternalLink } from 'lucide-react';
 
 interface Product {
   _id: string;
@@ -17,235 +18,197 @@ interface Product {
   modelStatus: string;
   modelUrl: string;
   barcode: string;
-  qrCode?: string;
 }
 
 export default function ProductsPage() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [filter, setFilter] = useState('');
-  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [qrCodes, setQrCodes] = useState<{ [key: string]: string }>({});
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const itemsPerPage = 9;
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-    } else {
-      setIsAuthenticated(true);
-    }
-  }, [router]);
+  // Railway Configuration
+  const BACKEND_URL = 'https://foodviz-backend-production.up.railway.app';
+  const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://foodviz-app.vercel.app';
+
+  const getFullImageUrl = (path: string) => {
+    if (!path) return '/placeholder-food.png';
+    if (path.startsWith('http')) return path;
+    return `${BACKEND_URL}${path}`;
+  };
 
   const fetchProducts = async () => {
-    setLoading(true);
     try {
-      const filters = {
-        category: filter || undefined,
-        search: search || undefined,
-        page: currentPage,
-        limit: itemsPerPage
-      };
-      const data = await getProducts(filters);
-      setProducts(data.products);
+      const data = await getProducts();
+      setProducts(data.products || []);
     } catch (error) {
-      console.error('Failed to fetch products', error);
+      console.error('Fetch error:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) router.push('/login');
     fetchProducts();
-    const interval = setInterval(fetchProducts, 5000);
+    
+    // Auto-refresh for 3D conversion status (Every 20 seconds)
+    const interval = setInterval(fetchProducts, 20000);
     return () => clearInterval(interval);
-  }, [filter]);
-
-  useEffect(() => {
-    const generateQRCodes = () => {
-      const newQrCodes: { [key: string]: string } = {};
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
-      for (const product of products) {
-        newQrCodes[product._id] = `${frontendUrl}/view-3d/${product._id}`;
-      }
-      setQrCodes(newQrCodes);
-    };
-    if (products.length > 0) {
-      generateQRCodes();
-    }
-  }, [products]);
+  }, []);
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
+    if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         await deleteProduct(id);
-        fetchProducts();
+        setProducts(products.filter(p => p._id !== id));
       } catch (error) {
-        console.error('Failed to delete product', error);
+        alert('Failed to delete product');
       }
     }
   };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(search.toLowerCase())
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(search.toLowerCase()) &&
+    (filter === '' || p.category === filter)
   );
-
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  if (!isAuthenticated) {
-    return <div>Loading...</div>;
-  }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">Products</h1>
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Navbar />
+
+        <main className="flex-1 overflow-y-auto p-6 lg:p-10">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Product Inventory</h1>
+              <p className="text-slate-500">Live products from Railway Backend</p>
+            </div>
             <Link href="/products/new">
-              <button className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors font-semibold">
-                Add New Product
+              <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-blue-200 transition-all flex items-center gap-2 active:scale-95">
+                <Plus className="w-5 h-5" /> Add New Product
               </button>
             </Link>
           </div>
 
-          <div className="flex justify-between items-center mb-6">
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="border p-3 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          {/* Search & Filter Bar */}
+          <div className="bg-white p-4 rounded-[1.5rem] shadow-sm border border-slate-200 flex flex-wrap gap-4 mb-8">
+            <div className="flex-1 min-w-[280px] relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search menu items..."
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
             <select
-              className="border p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="bg-slate-50 border border-slate-100 px-6 py-3 rounded-xl outline-none font-bold text-slate-600 focus:ring-2 focus:ring-blue-500"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             >
               <option value="">All Categories</option>
-              <option value="Dasi Food">Dasi Food</option>
-              <option value="Chinese Food">Chinese Food</option>
+              <option value="Desi Food">Desi Food</option>
               <option value="Fast Food">Fast Food</option>
-              <option value="Junk Food">Junk Food</option>
+              <option value="Chinese">Chinese</option>
             </select>
           </div>
 
-          {loading && <p className="text-center text-gray-600">Loading products...</p>}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {paginatedProducts.map((product) => {
-              const qrCodeUrl = qrCodes[product._id];
-              return (
-                <div key={product._id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 hover:scale-[1.02] min-h-80 overflow-hidden">
-                  <div className="relative h-40 mb-4 overflow-hidden rounded-xl group">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-80">
+              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+              <p className="text-slate-400 font-medium italic">Loading your Railway database...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+              {filteredProducts.map((product) => (
+                <div key={product._id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group overflow-hidden">
+                  {/* Image Section */}
+                  <div className="relative h-48">
                     <img
-                      src={product.imageUrl.startsWith('http') ? product.imageUrl : `http://localhost:5004${product.imageUrl}`}
+                      src={getFullImageUrl(product.imageUrl)}
                       alt={product.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <span className={`absolute top-3 right-3 px-2 py-1 text-xs font-bold text-white rounded-full shadow-lg backdrop-blur-sm ${product.modelStatus === 'completed' ? 'bg-gradient-to-r from-emerald-500 to-green-600' :
-                            product.modelStatus === 'failed' ? 'bg-gradient-to-r from-red-500 to-rose-600' : 'bg-gradient-to-r from-amber-500 to-orange-600'
-                          }`}>
-                      {product.modelStatus.toUpperCase()}
-                    </span>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-lg ${
+                      product.modelStatus === 'completed' ? 'bg-emerald-500' : 'bg-orange-500'
+                    }`}>
+                      {product.modelStatus}
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    <h2 className="text-lg font-bold text-gray-900 hover:text-blue-600 transition-colors line-clamp-2 leading-tight">{product.name}</h2>
-                    <div className="flex items-center justify-between">
-                      <p className="text-gray-600 font-medium bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1 rounded-full text-sm border border-blue-100">{product.category}</p>
-                      <p className="text-xl font-bold text-emerald-600">${product.price}</p>
+
+                  {/* Content Section */}
+                  <div className="p-5">
+                    <div className="mb-4">
+                      <h2 className="font-bold text-slate-800 text-lg line-clamp-1">{product.name}</h2>
+                      <p className="text-blue-500 text-xs font-bold uppercase tracking-wider">{product.category}</p>
                     </div>
-                    <div className="flex justify-between items-center pt-3 border-t border-gray-100">
-                      <div className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md font-medium">
-                        ID: {product.barcode || 'N/A'}
+
+                    <div className="flex items-center justify-between mb-6 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                      <div className="bg-white p-1 rounded-lg">
+                        <QRCode value={`${FRONTEND_URL}/view-3d/${product._id}`} size={55} />
                       </div>
-                      <div className="flex gap-2">
-                        <Link href={`/convert-3d?imageUrl=${encodeURIComponent(product.imageUrl.startsWith('http') ? product.imageUrl : `http://localhost:5004${product.imageUrl}`)}&productId=${product._id}`}>
-                          <button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-1 text-sm">
-                            <Box className="w-3.5 h-3.5" />
-                            3D
-                          </button>
-                        </Link>
-                        {product.modelStatus === 'completed' && (
-                          <button
-                            onClick={() => {
-                              setSelectedProduct(product);
-                              setIsModalOpen(true);
-                            }}
-                            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-1.5 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg flex items-center gap-1 text-sm"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            Preview
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(product._id)}
-                          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-3 py-1.5 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg text-sm"
-                        >
-                          Delete
+                      <div className="text-right">
+                        <p className="text-xl font-black text-slate-900">${product.price}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Scan for AR</p>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <Link href={`/convert-3d?imageUrl=${encodeURIComponent(getFullImageUrl(product.imageUrl))}&productId=${product._id}`} className="contents">
+                        <button className="flex flex-col items-center gap-1 p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all">
+                          <Box className="w-4 h-4" />
+                          <span className="text-[9px] font-bold uppercase">Generate</span>
                         </button>
-                      </div>
+                      </Link>
+
+                      <button 
+                        onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }}
+                        disabled={product.modelStatus !== 'completed'}
+                        className="flex flex-col items-center gap-1 p-2 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-900 hover:text-white transition-all disabled:opacity-20"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span className="text-[9px] font-bold uppercase">Preview</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleDelete(product._id)}
+                        className="flex flex-col items-center gap-1 p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="text-[9px] font-bold uppercase">Delete</span>
+                      </button>
                     </div>
-                    {qrCodeUrl && (
-                      <div className="flex justify-center pt-3 border-t border-gray-100">
-                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-2 rounded-lg shadow-inner border border-gray-200">
-                          <QRCode value={qrCodeUrl} size={80} />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="flex justify-center mt-6">
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 bg-blue-500 text-white rounded mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <span className="px-4 py-2">
-              Page {currentPage} of {Math.ceil(filteredProducts.length / itemsPerPage)}
-            </span>
-            <button
-              onClick={() => setCurrentPage(Math.min(Math.ceil(filteredProducts.length / itemsPerPage), currentPage + 1))}
-              disabled={currentPage === Math.ceil(filteredProducts.length / itemsPerPage)}
-              className="px-4 py-2 bg-blue-500 text-white rounded ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+              ))}
+            </div>
+          )}
+        </main>
       </div>
 
       {/* 3D Preview Modal */}
       {isModalOpen && selectedProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">{selectedProduct.name} - 3D Preview</h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-            <div className="w-full h-96">
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl relative flex flex-col lg:flex-row">
+            <button 
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-6 right-6 z-10 bg-white/80 hover:bg-red-500 hover:text-white p-2 rounded-full transition-all shadow-md"
+            >
+              <Plus className="w-6 h-6 rotate-45" />
+            </button>
+
+            <div className="flex-1 bg-slate-100 min-h-[300px] lg:min-h-full">
+              {/* @ts-ignore */}
               <model-viewer
                 src={selectedProduct.modelUrl}
                 alt={selectedProduct.name}
@@ -253,16 +216,36 @@ export default function ProductsPage() {
                 ar-modes="webxr scene-viewer quick-look"
                 camera-controls
                 auto-rotate
+                shadow-intensity="1"
                 style={{ width: '100%', height: '100%' }}
-              ></model-viewer>
+              />
             </div>
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                Close
-              </button>
+
+            <div className="w-full lg:w-80 p-8 flex flex-col border-l border-slate-100">
+              <h2 className="text-2xl font-black text-slate-900 mb-2">{selectedProduct.name}</h2>
+              <div className="flex items-center gap-2 mb-6">
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">
+                  {selectedProduct.category}
+                </span>
+              </div>
+              
+              <div className="space-y-4 mb-auto">
+                <div className="flex justify-between border-b border-slate-50 pb-2">
+                  <span className="text-slate-400 text-sm font-medium">AR Ready</span>
+                  <span className="text-emerald-500 font-bold text-sm underline flex items-center gap-1">
+                    YES <Box className="w-3 h-3" />
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-8 space-y-3">
+                <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2">
+                  <Download className="w-5 h-5" /> Download Asset
+                </button>
+                <p className="text-[10px] text-slate-400 text-center uppercase font-bold tracking-tighter">
+                  Compatible with iOS QuickLook & Android WebXR
+                </p>
+              </div>
             </div>
           </div>
         </div>

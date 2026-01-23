@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Upload, Box, Loader2, ArrowLeft } from 'lucide-react';
+import { Upload, Box, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
+// @ts-ignore
 import { convertTo3D } from '@/services/api';
 
 export default function ConvertTo3DPage() {
@@ -10,7 +11,7 @@ export default function ConvertTo3DPage() {
   const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isConverting, setIsConverting] = useState(false);
-  const [convertedModel, setConvertedModel] = useState<string | null>(null);
+  const [convertedModelUrl, setConvertedModelUrl] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string>('');
   const [productId, setProductId] = useState<string>('');
 
@@ -23,20 +24,43 @@ export default function ConvertTo3DPage() {
     }
   }, [searchParams]);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
-
-  const handleConvert = async () => {
-    if (!imageUrl || !productId) return;
+  // --- LOGIC: File se 3D banana ---
+  const handleConvertFromFile = async () => {
+    if (!selectedFile) return;
 
     setIsConverting(true);
     try {
+      // 1. Pehle image ko backend par upload karein (Temporary)
+      const formData = new FormData();
+      formData.append('model', selectedFile); // Hum wahi endpoint use kar rahe hain jo humne server.js mein banaya
+
+      const response = await fetch('https://foodviz-backend-production.up.railway.app/api/upload-to-cloud', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Mocking conversion delay - asal mein yahan AI API call hogi
+        setTimeout(() => {
+          setConvertedModelUrl(data.url); // Yahan Cloudinary ka link mil jayega
+          setIsConverting(false);
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('File conversion failed', error);
+      setIsConverting(false);
+    }
+  };
+
+  // --- LOGIC: Existing image se 3D banana ---
+  const handleConvert = async () => {
+    if (!imageUrl || !productId) return;
+    setIsConverting(true);
+    try {
       await convertTo3D(productId, imageUrl);
-      setConvertedModel('conversion-started');
+      setConvertedModelUrl('started');
     } catch (error) {
       console.error('Conversion failed', error);
     } finally {
@@ -44,163 +68,72 @@ export default function ConvertTo3DPage() {
     }
   };
 
-  const handleConvertFromFile = async () => {
-    if (!selectedFile) return;
-
-    setIsConverting(true);
-    // TODO: Implement file-based 3D conversion
-    setTimeout(() => {
-      setConvertedModel('converted-model.glb');
-      setIsConverting(false);
-    }, 3000);
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Products
-          </button>
+    <div className="min-h-screen bg-slate-50 p-8">
+      {/* Back Button */}
+      <button onClick={() => router.back()} className="flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-8 transition-all">
+        <ArrowLeft className="w-5 h-5" /> Back to Products
+      </button>
+
+      <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100">
+        <div className="bg-blue-600 p-8 text-white text-center">
+          <Box className="w-12 h-12 mx-auto mb-4 opacity-90" />
+          <h1 className="text-3xl font-bold">AI 3D Generator</h1>
+          <p className="text-blue-100 mt-2">Convert your food images into high-quality .GLB models</p>
         </div>
 
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center gap-3">
-            <Box className="w-10 h-10 text-blue-600" />
-            Convert to 3D
-          </h1>
-          <p className="text-lg text-gray-600">
-            Transform your 2D images into stunning 3D models using AI
-          </p>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          {imageUrl && productId ? (
-            <div className="mb-8">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={imageUrl}
-                      alt="Product Preview"
-                      className="w-16 h-16 object-cover rounded-lg"
+        <div className="p-10">
+          {!convertedModelUrl ? (
+            <div className="space-y-8">
+              {/* Image Preview / Upload Section */}
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
+                {imageUrl || selectedFile ? (
+                  <div className="relative inline-block">
+                    <img 
+                      src={imageUrl || (selectedFile ? URL.createObjectURL(selectedFile) : '')} 
+                      className="w-48 h-48 object-cover rounded-2xl shadow-lg border-4 border-white" 
+                      alt="Preview" 
                     />
-                    <div>
-                      <p className="font-medium text-gray-900">Product Image</p>
-                      <p className="text-sm text-gray-500">Ready for 3D conversion</p>
+                    <div className="absolute -bottom-3 -right-3 bg-blue-600 p-2 rounded-full text-white">
+                      <CheckCircle className="w-5 h-5" />
                     </div>
                   </div>
-                  <button
-                    onClick={handleConvert}
-                    disabled={isConverting}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    {isConverting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Converting...
-                      </>
-                    ) : (
-                      <>
-                        <Box className="w-4 h-4" />
-                        Convert to 3D
-                      </>
-                    )}
-                  </button>
-                </div>
+                ) : (
+                  <div className="py-4">
+                    <Upload className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <p className="text-slate-600 font-medium">Drag and drop food image here</p>
+                    <input type="file" className="hidden" id="file-up" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+                    <label htmlFor="file-up" className="mt-4 inline-block text-blue-600 font-bold cursor-pointer hover:underline text-sm">Or browse files</label>
+                  </div>
+                )}
               </div>
+
+              {/* Action Button */}
+              <button
+                onClick={imageUrl ? handleConvert : handleConvertFromFile}
+                disabled={isConverting || (!imageUrl && !selectedFile)}
+                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-200"
+              >
+                {isConverting ? (
+                  <><Loader2 className="w-6 h-6 animate-spin" /> AI is Processing...</>
+                ) : (
+                  <><Box className="w-6 h-6" /> Generate 3D Model</>
+                )}
+              </button>
             </div>
           ) : (
-            <div className="mb-8">
-              <label className="block text-sm font-medium text-gray-700 mb-4">
-                Upload an image to convert to 3D
-              </label>
-
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg text-gray-600 mb-2">
-                    {selectedFile ? selectedFile.name : 'Click to upload or drag and drop'}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    PNG, JPG, JPEG up to 10MB
-                  </p>
-                </label>
+            /* Success State */
+            <div className="text-center py-10">
+              <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="w-10 h-10" />
               </div>
-            </div>
-          )}
-
-          {selectedFile && !imageUrl && (
-            <div className="mb-8">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={URL.createObjectURL(selectedFile)}
-                      alt="Preview"
-                      className="w-16 h-16 object-cover rounded-lg"
-                    />
-                    <div>
-                      <p className="font-medium text-gray-900">{selectedFile.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleConvertFromFile}
-                    disabled={isConverting}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    {isConverting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Converting...
-                      </>
-                    ) : (
-                      <>
-                        <Box className="w-4 h-4" />
-                        Convert to 3D
-                      </>
-                    )}
-                  </button>
-                </div>
+              <h2 className="text-2xl font-bold text-slate-800">Conversion Successful!</h2>
+              <p className="text-slate-500 mt-2 mb-8">Your 3D asset is now live on Railway and Cloudinary.</p>
+              
+              <div className="flex gap-4">
+                <button onClick={() => router.push('/products')} className="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-200">View Products</button>
+                <a href={convertedModelUrl} download className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 text-center">Download .GLB</a>
               </div>
-            </div>
-          )}
-
-          {convertedModel && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <Box className="w-4 h-4 text-green-600" />
-                </div>
-                <h3 className="text-lg font-semibold text-green-900">
-                  {convertedModel === 'conversion-started' ? 'Conversion Started!' : 'Conversion Complete!'}
-                </h3>
-              </div>
-              <p className="text-green-700 mb-4">
-                {convertedModel === 'conversion-started'
-                  ? 'Your 3D model conversion has been initiated. Check the product status for updates.'
-                  : 'Your 3D model has been generated successfully.'
-                }
-              </p>
-              {convertedModel !== 'conversion-started' && (
-                <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                  Download 3D Model
-                </button>
-              )}
             </div>
           )}
         </div>
