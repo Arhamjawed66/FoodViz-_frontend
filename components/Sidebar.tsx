@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { 
-  Package, Plus, FolderOpen, Settings, LogOut, BarChart 
+import {
+  Package, Plus, FolderOpen, Settings, LogOut, BarChart
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -14,7 +14,7 @@ interface SidebarProps {
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const router = useRouter();
-  const pathname = usePathname(); // Active link highlight karne ke liye
+  const pathname = usePathname();
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -29,13 +29,17 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   ];
 
   return (
-    <div className={`bg-slate-900 text-white h-screen flex flex-col transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+    <div className={`gradient-ocean-bg text-white h-screen flex flex-col transition-all duration-500 shadow-2xl ${isCollapsed ? 'w-20' : 'w-64'}`}>
       {/* Header & Toggle */}
       <div className="p-6 flex items-center justify-between">
-        {!isCollapsed && <span className="font-bold text-xl tracking-wider text-blue-400">FOODVIZ</span>}
+        {!isCollapsed && (
+          <span className="font-black text-2xl tracking-wider pro-text-gradient animate-fade-in">
+            FOODVIZ
+          </span>
+        )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1 hover:bg-slate-800 rounded transition-colors cursor-pointer"
+          className="p-2 hover:bg-white/10 rounded-xl transition-all duration-300 cursor-pointer hover-lift"
         >
           {isCollapsed ? '→' : '←'}
         </button>
@@ -43,25 +47,33 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
 
       {/* Primary Action: Add Product */}
       <div className="px-4 mb-6">
-        <Link href="/products/add">
-          <div className={`flex items-center justify-center p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all cursor-pointer shadow-lg shadow-blue-900/20`}>
-            <Plus className="w-5 h-5" />
-            {!isCollapsed && <span className="ml-3 font-semibold">New Product</span>}
+        <Link href="/products/new">
+          <div className="btn-gradient-secondary flex items-center justify-center p-4 rounded-2xl transition-all duration-300 cursor-pointer shadow-xl hover-lift group">
+            <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
+            {!isCollapsed && (
+              <span className="ml-3 font-bold text-lg tracking-wide">New Product</span>
+            )}
           </div>
         </Link>
       </div>
 
       {/* Navigation Menu */}
-      <nav className="flex-1 px-4 space-y-2">
-        {menuItems.map((item) => {
+      <nav className="flex-1 px-4 space-y-3">
+        {menuItems.map((item, index) => {
           const isActive = pathname === item.href;
           return (
             <Link key={item.name} href={item.href}>
-              <div className={`flex items-center px-4 py-3 rounded-lg transition-all cursor-pointer ${
-                isActive ? 'bg-slate-800 text-blue-400 border-l-4 border-blue-400' : 'text-gray-400 hover:bg-slate-800 hover:text-white'
-              }`}>
-                <item.icon className="w-5 h-5" />
-                {!isCollapsed && <span className="ml-4 font-medium">{item.name}</span>}
+              <div className={`flex items-center px-5 py-4 rounded-2xl transition-all duration-300 cursor-pointer group animate-slide-up ${
+                isActive
+                  ? 'bg-white/20 text-white border-l-4 border-white shadow-lg backdrop-blur-sm'
+                  : 'text-white/80 hover:bg-white/10 hover:text-white hover:shadow-md'
+              }`}
+              style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <item.icon className={`w-6 h-6 transition-all duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`} />
+                {!isCollapsed && (
+                  <span className="ml-4 font-semibold text-lg tracking-wide">{item.name}</span>
+                )}
               </div>
             </Link>
           );
@@ -69,13 +81,15 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
       </nav>
 
       {/* Logout Footer */}
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 border-t border-white/20">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center px-4 py-3 text-red-400 hover:bg-red-900/20 hover:text-red-300 rounded-lg transition-all cursor-pointer"
+          className="w-full flex items-center px-5 py-4 text-red-300 hover:bg-red-500/20 hover:text-red-200 rounded-2xl transition-all duration-300 cursor-pointer hover-lift group"
         >
-          <LogOut className="w-5 h-5" />
-          {!isCollapsed && <span className="ml-4 font-medium">Logout</span>}
+          <LogOut className="w-6 h-6 group-hover:-translate-x-1 transition-transform duration-300" />
+          {!isCollapsed && (
+            <span className="ml-4 font-semibold text-lg tracking-wide">Logout</span>
+          )}
         </button>
       </div>
     </div>

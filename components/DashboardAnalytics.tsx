@@ -7,7 +7,7 @@ import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title,
   Tooltip, Legend, ArcElement
 } from 'chart.js';
-import { Box, CheckCircle, Clock, Database } from 'lucide-react';
+import { Box, CheckCircle, Clock, Database, TrendingUp, Activity, Zap } from 'lucide-react';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
 
@@ -71,44 +71,120 @@ export default function DashboardAnalytics() {
   };
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-8 gradient-cool-bg min-h-screen animate-fade-in">
+      <div className="flex items-center justify-between mb-10">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">FoodViz Analytics</h1>
-          <p className="text-gray-500">Live monitoring of your 3D assets on Railway</p>
+          <h1 className="text-4xl font-black pro-heading-gradient mb-2">FoodViz Analytics</h1>
+          <p className="text-slate-600 dark:text-slate-300 text-lg flex items-center">
+            <Activity className="w-5 h-5 mr-2 text-blue-500" />
+            Live monitoring of your 3D assets on Railway
+          </p>
         </div>
-        <div className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium flex items-center">
-          <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-6 py-3 rounded-full text-sm font-bold flex items-center shadow-lg border border-emerald-200 dark:border-emerald-800">
+          <div className="w-3 h-3 bg-emerald-500 rounded-full mr-3 animate-pulse-slow shadow-glow-secondary"></div>
+          <Zap className="w-4 h-4 mr-2" />
           Connected to Railway
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
         <StatCard title="Total Products" value={totalProducts} icon={<Box className="text-blue-600" />} color="blue" />
         <StatCard title="Completed Models" value={completedModels} icon={<CheckCircle className="text-green-600" />} color="green" />
         <StatCard title="In Pipeline" value={processingModels} icon={<Clock className="text-orange-600" />} color="orange" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {/* Bar Chart */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-xl font-semibold mb-6 flex items-center">
-            <Database className="mr-2 w-5 h-5" /> 3D Inventory Status
+        <div className="card-gradient p-8 rounded-3xl shadow-large hover-lift transition-all duration-500">
+          <h2 className="text-2xl font-black mb-8 flex items-center text-slate-800 dark:text-slate-200">
+            <Database className="mr-3 w-7 h-7 text-blue-500" />
+            3D Inventory Status
+            <TrendingUp className="ml-auto w-5 h-5 text-emerald-500" />
           </h2>
           <div className="h-80">
-            <Bar 
-              data={chartData} 
-              options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} 
+            <Bar
+              data={chartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    cornerRadius: 8,
+                  }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    grid: {
+                      color: 'rgba(148, 163, 184, 0.1)',
+                    },
+                    ticks: {
+                      color: '#64748b',
+                      font: {
+                        weight: 'bold'
+                      }
+                    }
+                  },
+                  x: {
+                    grid: {
+                      display: false
+                    },
+                    ticks: {
+                      color: '#64748b',
+                      font: {
+                        weight: 'bold'
+                      }
+                    }
+                  }
+                },
+                animation: {
+                  duration: 2000,
+                  easing: 'easeInOutQuart'
+                }
+              }}
             />
           </div>
         </div>
 
         {/* Pie Chart */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-xl font-semibold mb-6">Menu Distribution</h2>
+        <div className="card-gradient p-8 rounded-3xl shadow-large hover-lift transition-all duration-500">
+          <h2 className="text-2xl font-black mb-8 text-slate-800 dark:text-slate-200">Menu Distribution</h2>
           <div className="h-80">
-            <Pie data={pieData} options={{ responsive: true, maintainAspectRatio: false }} />
+            <Pie
+              data={pieData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'bottom' as const,
+                    labels: {
+                      padding: 20,
+                      usePointStyle: true,
+                      font: {
+                        size: 12,
+                        weight: 'bold'
+                      }
+                    }
+                  },
+                  tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    cornerRadius: 8,
+                  }
+                },
+                animation: {
+                  duration: 2000,
+                  easing: 'easeInOutQuart'
+                }
+              }}
+            />
           </div>
         </div>
       </div>
@@ -118,19 +194,32 @@ export default function DashboardAnalytics() {
 
 // Reusable StatCard Component for Professional Look
 function StatCard({ title, value, icon, color }: any) {
-  const colors: any = {
-    blue: "bg-blue-50 border-blue-100",
-    green: "bg-green-50 border-green-100",
-    orange: "bg-orange-50 border-orange-100"
+  const gradients: any = {
+    blue: "gradient-primary-bg",
+    green: "gradient-secondary-bg",
+    orange: "gradient-accent-bg"
+  };
+
+  const borders: any = {
+    blue: "border-blue-200 dark:border-blue-800",
+    green: "border-green-200 dark:border-green-800",
+    orange: "border-orange-200 dark:border-orange-800"
   };
 
   return (
-    <div className={`p-6 rounded-xl border ${colors[color]} transition-transform hover:scale-105`}>
-      <div className="flex items-center justify-between mb-4">
-        <div className="p-2 bg-white rounded-lg shadow-sm">{icon}</div>
-        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{title}</span>
+    <div className={`card-gradient p-8 rounded-3xl border ${borders[color]} shadow-large hover-lift transition-all duration-500 group`}>
+      <div className="flex items-center justify-between mb-6">
+        <div className={`p-4 ${gradients[color]} rounded-2xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+          {icon}
+        </div>
+        <span className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
+          {title}
+        </span>
       </div>
-      <div className="text-4xl font-black text-gray-800">{value}</div>
+      <div className="text-5xl font-black text-slate-800 dark:text-slate-200 mb-2 animate-slide-up">
+        {value}
+      </div>
+      <div className={`h-1 ${gradients[color]} rounded-full opacity-60`}></div>
     </div>
   );
 }
